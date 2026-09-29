@@ -2,62 +2,69 @@
 
 * **Platform:** TryHackMe
 * **Zorluk Seviyesi:** Easy
-* **Makale Amacı:** Bu makinede Nmap ile servis keşfi, Elasticsearch/Kibana üzerinden RCE (CVE-2019-7609) zafiyeti ile sisteme sızma ve Linux Capabilities (`cap_setuid`) kullanarak root yetkisi yükseltme adımları gerçekleştirilmiştir.
+* **Makale Amacı:** Bu makinede Nmap ile servis keşfi, Elasticsearch/Kibana üzerinde CVE-2019-7609 (RCE) zafiyetinin sömürülmesi ve Linux Capabilities (`cap_setuid+ep`) kullanılarak root yetkisi yükseltme adımları gerçekleştirilmiştir.
 
 ---
 
 ## 1. Keşif (Reconnaissance)
 
-Hedef IP adresine yönelik gerçekleştirilen ilk Nmap taraması ile açık portlar ve servis sürümleri tespit edilmiştir.
+Hedef IP adresine yönelik gerçekleştirilen kapsamlı Nmap taraması ile açık portlar ve servis sürümleri tespit edilmiştir.
 
-* **Komut:** `nmap -p- -v -T4 10.113.134.222`
+* **Komut:** `nmap -p- -v -T4 10.113.134.222`[cite: 25]
 * **Açık Portlar:**
-  * **Port 22 (SSH):** OpenSSH
-  * **Port 80 (HTTP):** Apache httpd
-  * **Port 5044 (lxi-evntsvc):** Aktif servis
-  * **Port 5601 (esmagent):** Elasticsearch Kibana
+  * **Port 22 (tcp):** ssh[cite: 25]
+  * **Port 80 (tcp):** http[cite: 25]
+  * **Port 5044 (tcp):** lxi-evntsvc[cite: 25]
+  * **Port 5601 (tcp):** esmagent (Kibana web arayüzü)[cite: 25, 26]
 
-| Nmap Taraması | Açıklama |
-| :--- | :--- |
-|<img width="1479" height="943" alt="1_3" src="https://github.com/user-attachments/assets/b92afa16-6e1b-489f-b2e2-f0d206e5a216" /> | Genel port taraması sonuçları |
-|<img width="1479" height="943" alt="2_2" src="https://github.com/user-attachments/assets/b8319496-21da-4156-bfe9-6b5260bd456e" /> | Servis versiyon tespiti (`-sC -sV`) |
+<img width="1250" height="916" alt="1" src="https://github.com/user-attachments/assets/bdd17ce7-59c6-4f32-bda4-6f32cee75b2e" />
+
+
+* **Detaylı Servis Taraması:** 5044 ve 5601 portlarına yönelik çalıştırılan servis versiyon taramasında Kibana 6.5.4 sürümü tespit edilmiştir[cite: 26].
+
+<img width="1716" height="483" alt="2" src="https://github.com/user-attachments/assets/7b1e01ee-8c5c-4335-bda1-5ef2b21ce8e5" />
+
 
 ---
 
 ## 2. Servis Analizi & Bilgi Toplama (Enumeration)
 
-* Port 5601 üzerinde çalışan Kibana servisine tarayıcı üzerinden erişilerek versiyon bilgisi `6.5.4` olarak tespit edilmiştir.
-* Yapılan araştırmalar neticesinde bu versiyonun `CVE-2019-7609` kodlu RCE zafiyetine sahip olduğu görülmüştür.
+* Tarayıcı üzerinden `http://10.113.134.222:5601` adresine gidildiğinde Kibana yönetim paneli ile karşılaşılmıştır[cite: 27].
+* Yönetim panelinde sürüm numarasının **6.5.4** olduğu doğrulanmıştır[cite: 27].
 
-| Kibana Arayüzü ve Zafiyet Tespiti | Açıklama |
-| :--- | :--- |
-|<img width="1479" height="943" alt="3_3" src="https://github.com/user-attachments/assets/f194963e-7adf-4138-a61b-12f113931463" /> | Kibana Management paneli ve sürüm bilgisi (6.5.4) |
-|<img width="1479" height="943" alt="4_3" src="https://github.com/user-attachments/assets/3e962862-51dc-4ca1-9f4d-d5bd021e8f5a" /> | Zafiyet kodu tespiti (CVE-2019-7609) |
+<img width="1912" height="817" alt="3" src="https://github.com/user-attachments/assets/72391baa-374e-44bd-9d17-1824b6133bd0" />
+
 
 ---
 
 ## 3. Sömürü (Exploitation / Foothold)
 
-* `CVE-2019-7609` python exploit betiği kullanılarak hedef Kibana servisine RCE saldırısı başlatılmıştır.
-* Saldırgan makinede Netcat ile dinleme (`nc`) açılmış ve başarılı bir şekilde reverse shell alınmıştır.
-* Sistemde kullanıcı bayrağı (`user.txt`) okunmuştur.
+* Tespit edilen Kibana 6.5.4 sürümünün **CVE-2019-7609** (Timelion RCE) zafiyetine karşı savunmasız olduğu belirlenmiştir[cite: 28, 33].
+* Saldırgan makine üzerinde netcat dinlemeye alınmış ve exploit betiği çalıştırılarak sisteme ters bağlantı (reverse shell) sağlanmıştır[cite: 28, 29].
+* Bağlantı sonrası `kiba` kullanıcısı olarak sistem oturumu açılmış ve `user.txt` bayrağı okunmuştur[cite: 29, 32].
 
 | Sömürü Adımları | Açıklama |
 | :--- | :--- |
-|<img width="1479" height="943" alt="5_3" src="https://github.com/user-attachments/assets/abb18938-8079-49f5-a97c-2cf54b886ae2" /> | Python exploit ile RCE tetiklenmesi |
-|<img width="1479" height="943" alt="6_3" src="https://github.com/user-attachments/assets/6d8c4406-1dc6-4a7d-81cf-5a52fe26b25b" /> | Netcat üzerinden bağlantının yakalanması |
-|<img width="1479" height="943" alt="8_3" src="https://github.com/user-attachments/assets/bccef494-d916-4565-ae38-22b3e8fb2229" /> | Kullanıcı bayrağının (`user.txt`) okunması |
+|<img width="1699" height="265" alt="5" src="https://github.com/user-attachments/assets/765ca6d8-75a7-49f6-a033-fdfe1d671fae" />
+| CVE-2019-7609 exploit scriptinin çalıştırılması[cite: 28] |
+|<img width="1376" height="380" alt="6" src="https://github.com/user-attachments/assets/f58d98dd-b2ec-4fc5-86fe-27ad521f100a" />
+| Netcat ile reverse shell alınması (`kiba@ubuntu`)[cite: 29] |
+|<img width="1178" height="312" alt="7" src="https://github.com/user-attachments/assets/94954972-100b-477a-b975-1c273687b7a4" />
+| Kullanıcı bayrağının okunması (`THM{1s_easy_pwn3d_k1bana_w1th_rce}`)[cite: 32] |
 
 ---
 
 ## 4. Yetki Yükseltme (Privilege Escalation)
 
-* Sistemdeki yetki zafiyetlerini bulmak için `getcap -r / 2>/dev/null` komutu çalıştırılmıştır.
-* `/home/kiba/.hackmeplease/python3` dosyasında `cap_setuid+ep` yetkisinin bulunduğu tespit edilmiştir.
-* Bu yetki kullanılarak python üzerinden UID 0 (root) set edilmiş ve `/bin/bash` çağrılarak root erişimi sağlanmıştır.
-* `root.txt` dosyasına ulaşılarak bayrak elde edilmiştir.
+* `sudo -l` komutu denendiğinde tty kısıtlaması ile karşılaşılmıştır[cite: 32].
+* Sistem genelinde yetki yükseltme vektörlerini bulmak için `getcap -r / 2>/dev/null` komutu çalıştırılmıştır[cite: 31].
+* Yapılan tarama sonucunda `/home/kiba/.hackmeplease/python3` dosyasında `cap_setuid+ep` yeteneği (capability) bulunduğu tespit edilmiştir[cite: 31].
+* Bu yetki sayesinde Python binary'si doğrudan root yetkileriyle komut çalıştırabilecek kapasiteye sahiptir.
+* İlgili dizine geçilerek yetki yükseltme komutu tetiklenmiş ve root erişimi sağlanarak `root.txt` dosyasına ulaşılmıştır[cite: 30].
 
 | Yetki Yükseltme Adımları | Açıklama |
 | :--- | :--- |
-|<img width="1479" height="943" alt="7_3" src="https://github.com/user-attachments/assets/905f5356-4538-4e84-b8a9-58b72793f1dc" /> | `getcap` ile Capabilities taraması |
-|<img width="1479" height="943" alt="9_3" src="https://github.com/user-attachments/assets/0feca5b8-c91b-428e-914f-c0a0f3f168e4" /> | Python ile root yetkisine geçiş ve `root.txt` okuma |
+|<img width="921" height="210" alt="8" src="https://github.com/user-attachments/assets/643a16c5-26ed-41d3-ab93-9ced3bfd6ff6" />
+| `getcap` ile Linux Capabilities taraması[cite: 31] |
+|<img width="1900" height="485" alt="9" src="https://github.com/user-attachments/assets/feee0e28-238e-4bb1-8a56-6c597adb981f" />
+| Python üzerinden root yetkisi alınması ve bayrağa erişim (`THM{pr1v1lege_escalat1on_us1ng_capab1l1t1es}`)[cite: 30] |
